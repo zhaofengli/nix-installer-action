@@ -12,6 +12,9 @@ inputs:
     required: false
   github-token:
     description: A Github Token so that authenticated requests can be made (set this to `secrets.GITHUB_TOKEN`)
+  trust-runner-user:
+    description: Whether to make the runner user trusted by the Nix daemon
+    default: "true"
   channels:
     description: Channel(s) to add (eg `nixpkgs=https://nixos.org/channels/nixpkgs-unstable`)
     required: false
@@ -159,18 +162,21 @@ runs:
           echo "Set NIX_INSTALLER_NIX_PACKAGE_URL=$NIX_INSTALLER_NIX_PACKAGE_URL"
         fi
 
+        nix_extra_conf=""
+        newline='
+        '
         if [ -n "${{ inputs.extra-conf }}" ]; then
-          if [ -n "${{ inputs.github-token }}" ]; then
-            export NIX_INSTALLER_EXTRA_CONF="${{ inputs.extra-conf }}access-tokens = github.com=${{ inputs.github-token }}"
-          else
-            export NIX_INSTALLER_EXTRA_CONF="${{ inputs.extra-conf }}"
-          fi
+          nix_extra_conf="${{ inputs.extra-conf }}"
+        fi
+        if [ -n "${{ inputs.github-token }}" ]; then
+          nix_extra_conf="${nix_extra_conf:+$nix_extra_conf$newline}access-tokens = github.com=${{ inputs.github-token }}"
+        fi
+        if [ "${{ inputs.trust-runner-user }}" == "true" ]; then
+          nix_extra_conf="${nix_extra_conf:+$nix_extra_conf$newline}trusted-users = root $USER"
+        fi
+        if [ -n "$nix_extra_conf" ]; then
+          export NIX_INSTALLER_EXTRA_CONF="$nix_extra_conf"
           echo "Set NIX_INSTALLER_EXTRA_CONF=$NIX_INSTALLER_EXTRA_CONF"
-        else
-          if [ -n "${{ inputs.github-token }}" ]; then
-            export NIX_INSTALLER_EXTRA_CONF="access-tokens = github.com=${{ inputs.github-token }}"
-            echo "Set NIX_INSTALLER_EXTRA_CONF=$NIX_INSTALLER_EXTRA_CONF"
-          fi
         fi
 
         if [ -n "${{ inputs.mac-encrypt }}" ]; then
